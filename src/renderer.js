@@ -4,6 +4,12 @@ import parse from 'csv-parse/lib/sync';
 import fs from 'fs';
 import stringify from 'csv-stringify/lib/sync';
 import path from 'path';
+import countyBoundaries from './Utah_County_Boundaries';
+import tag from '@turf/tag';
+import proj4 from 'proj4';
+
+
+console.log('countyBoundaries', countyBoundaries);
 
 const getParameters = () => {
   const inputNodes = document.getElementsByTagName('input');
@@ -34,7 +40,6 @@ window.openFile = async () => {
     columns: true,
     skip_empty_lines: true
   });
-  console.log(records);
 
   const recordsForGeocoding = etlRecordsForGeocoding(records, inputId, inputStreet, inputZone);
   const response = await fetch(`https://api.mapserv.utah.gov/api/v1/geocode/multiple?apiKey=${apiKey}`, {
@@ -50,15 +55,38 @@ window.openFile = async () => {
 
   const geocodingResults = convertGeocodingResultsToLookup(responseJson.result.addresses);
 
+  // project geocoding coords (26912) into WGS84 to match polygon data
+  const project = proj4('PROJCS["NAD83 / UTM zone 12N",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",-111],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","26912"]]', 'WGS84').forward;
+  const pointsFeatureSet = {
+    type: 'FeatureCollection',
+    features: responseJson.result.addresses.map(result => {
+      return {
+        properties: {
+          id: result.id
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: project([result.location.x, result.location.y])
+        }
+      }
+    })
+  };
+
+  // spatial join
+  const joined = tag(pointsFeatureSet, countyBoundaries, fieldName, 'COUNTY_NAME');
+  console.log('joined', joined);
+  const joinedLookup = convertJoinedToLookup(joined, 'COUNTY_NAME');
+
   const newRecords = records.map(record => {
     return {
       ...record,
-      ...geocodingResults[record[inputId]]
+      ...geocodingResults[record[inputId]],
+      COUNTY_NAME: joinedLookup[record[inputId]]
     };
   });
-  // point-in-polygon with sgid table
 
   // write to new file with additional field name
+  console.log('newRecords', newRecords);
 
   const outputFileContents = stringify(newRecords, { header: true });
   fs.writeFileSync(outputFilePath, outputFileContents);
@@ -72,6 +100,15 @@ const etlRecordsForGeocoding = (records, idField, streetField, zoneField) => {
       zone: record[zoneField]
     };
   });
+};
+
+const convertJoinedToLookup = (featureSet, fieldName) => {
+  const lookup = {};
+  featureSet.features.forEach(feature => {
+    lookup[feature.properties.id] = feature.properties[fieldName]
+  });
+
+  return lookup;
 };
 
 const convertGeocodingResultsToLookup = (results) => {
