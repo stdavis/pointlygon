@@ -79,6 +79,7 @@
     "@turf/turf": "5.1.6",
     "csv": "5.3.1",
     "electron-squirrel-startup": "1.0.0",
+    "lodash": "4.17.15",
     "proj4": "2.6.0"
   }
 }

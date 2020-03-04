@@ -6,16 +6,20 @@
   </head>
   <body>
     API Key
-    <!-- office -->
-    <!-- <input type="text" id="apiKey" value="AGRC-77EECDF8666218" /> -->
-
     <!-- home -->
-    <input type="text" id="apiKey" value="AGRC-ED11D762314090" />
+    <input type="text" id="apiKey" value="AGRC-FAD6038F542079" />
+
+    <!-- office -->
+    <!-- <input type="text" id="apiKey" value="AGRC-ED11D762314090" /> -->
     <h3>Output</h3>
-    Open SGID Table Name
-    <input type="text" id="tableName" value="opensgid.political.house_districts_2012" />
+    Open Data Dataset
+    <select id="tableName" onchange="loadOpenDataDataset()">
+      <option>please select a table</option>
+    </select>
     Field Name
-    <input type="text" id="fieldName" value="NAME" />
+    <select id="fieldName">
+      <option>please select a field</option>
+    </select>
     <h3>Input</h3>
     ID Field Name
     <input type="text" id="inputId" value="OID" />

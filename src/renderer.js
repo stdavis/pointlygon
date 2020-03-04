@@ -4,12 +4,10 @@ import parse from 'csv-parse/lib/sync';
 import fs from 'fs';
 import stringify from 'csv-stringify/lib/sync';
 import path from 'path';
-import countyBoundaries from './Utah_County_Boundaries';
 import tag from '@turf/tag';
 import proj4 from 'proj4';
+import { sortBy } from 'lodash/collection';
 
-
-console.log('countyBoundaries', countyBoundaries);
 
 const getParameters = () => {
   const inputNodes = document.getElementsByTagName('input');
@@ -18,15 +16,51 @@ const getParameters = () => {
   for (let node of inputNodes) {
     parameters[node.id] = node.value;
   };
+  parameters.fieldName = document.getElementById('fieldName').value;
   console.log('parameters', parameters);
 
   return parameters;
 };
 
-const { apiKey, tableName, fieldName, inputId, inputStreet, inputZone } = getParameters();
+const getOpenDataDatasets = async () => {
+  const OpenDataAPI = 'https://opendata.gis.utah.gov/data.json';
+
+  const response = await fetch(OpenDataAPI);
+  const responseJson = await response.json();
+
+  const tableNameSelect = document.getElementById('tableName');
+  sortBy(responseJson.dataset, ['title']).forEach(dataset => {
+    const distribution = dataset.distribution.find(dist => dist.format === 'GeoJSON');
+    if (distribution) {
+      const option = document.createElement('option');
+      option.value = distribution.accessURL;
+      option.innerHTML = dataset.title;
+      tableNameSelect.appendChild(option);
+    }
+  });
+};
+getOpenDataDatasets();
+
+window.loadOpenDataDataset = async () => {
+  console.log('loadOpenDataDataset');
+
+  const tableNameSelect = document.getElementById('tableName');
+  const response = await fetch(tableNameSelect.value.replace('http', 'https'));
+  const featureSet = await response.json();
+  const firstFeature = featureSet.features[0];
+
+  const fieldNameSelect = document.getElementById('fieldName');
+  Object.keys(firstFeature.properties).forEach(fieldName => {
+    const option = document.createElement('option');
+    option.value = fieldName;
+    option.innerHTML = fieldName;
+    fieldNameSelect.appendChild(option);
+  });
+};
 
 window.openFile = async () => {
-  console.log('openFile');
+  const { apiKey, tableName, fieldName, inputId, inputStreet, inputZone } = getParameters();
+
   const filePaths = remote.dialog.showOpenDialogSync();
   console.log('filePaths', filePaths);
 
@@ -73,15 +107,15 @@ window.openFile = async () => {
   };
 
   // spatial join
-  const joined = tag(pointsFeatureSet, countyBoundaries, fieldName, 'COUNTY_NAME');
+  const joined = tag(pointsFeatureSet, countyBoundaries, fieldName, fieldName);
   console.log('joined', joined);
-  const joinedLookup = convertJoinedToLookup(joined, 'COUNTY_NAME');
+  const joinedLookup = convertJoinedToLookup(joined, fieldName);
 
   const newRecords = records.map(record => {
     return {
       ...record,
       ...geocodingResults[record[inputId]],
-      COUNTY_NAME: joinedLookup[record[inputId]]
+      [fieldName]: joinedLookup[record[inputId]]
     };
   });
 
