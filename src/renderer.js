@@ -10,13 +10,13 @@ import { sortBy } from 'lodash/collection';
 
 
 const getParameters = () => {
-  const inputNodes = document.getElementsByTagName('input');
+  const inputNodes = Array.from(document.getElementsByTagName('input'))
+    .concat(Array.from(document.getElementsByTagName('select')));
   const parameters = {};
 
   for (let node of inputNodes) {
     parameters[node.id] = node.value;
   };
-  parameters.fieldName = document.getElementById('fieldName').value;
   console.log('parameters', parameters);
 
   return parameters;
@@ -41,41 +41,54 @@ const getOpenDataDatasets = async () => {
 };
 getOpenDataDatasets();
 
+let openDataFeatureSet;
 window.loadOpenDataDataset = async () => {
   console.log('loadOpenDataDataset');
 
   const tableNameSelect = document.getElementById('tableName');
   const response = await fetch(tableNameSelect.value.replace('http', 'https'));
-  const featureSet = await response.json();
-  const firstFeature = featureSet.features[0];
+  openDataFeatureSet = await response.json();
+  const firstFeature = openDataFeatureSet.features[0];
 
-  const fieldNameSelect = document.getElementById('fieldName');
-  Object.keys(firstFeature.properties).forEach(fieldName => {
+  loadSelect('fieldName', Object.keys(firstFeature.properties));
+};
+
+const loadSelect = (id, values) => {
+  const select = document.getElementById(id);
+  values.forEach(value => {
     const option = document.createElement('option');
-    option.value = fieldName;
-    option.innerHTML = fieldName;
-    fieldNameSelect.appendChild(option);
+    option.value = value;
+    option.innerHTML = value;
+    select.appendChild(option);
   });
 };
 
-window.openFile = async () => {
-  const { apiKey, tableName, fieldName, inputId, inputStreet, inputZone } = getParameters();
-
+let inputRecords;
+let outputFilePath;
+window.openFile = () => {
   const filePaths = remote.dialog.showOpenDialogSync();
   console.log('filePaths', filePaths);
 
   const csvPath = filePaths[0];
-  const outputFilePath = `${path.dirname(csvPath)}/${path.basename(csvPath, '.csv')}_Attributed.csv`;
-  console.log('outputFilePath', outputFilePath);
+  outputFilePath = `${path.dirname(csvPath)}/${path.basename(csvPath, '.csv')}_Attributed.csv`;
 
   // read records
   const fileContents = fs.readFileSync(csvPath, 'utf8');
-  const records = parse(fileContents, {
+  inputRecords = parse(fileContents, {
     columns: true,
     skip_empty_lines: true
   });
 
-  const recordsForGeocoding = etlRecordsForGeocoding(records, inputId, inputStreet, inputZone);
+  const fields = Object.keys(inputRecords[0]);
+  loadSelect('inputId', fields);
+  loadSelect('inputStreet', fields);
+  loadSelect('inputZone', fields);
+}
+
+window.processRecords = async () => {
+  const { apiKey, tableName, fieldName, inputId, inputStreet, inputZone } = getParameters();
+
+  const recordsForGeocoding = etlRecordsForGeocoding(inputRecords, inputId, inputStreet, inputZone);
   const response = await fetch(`https://api.mapserv.utah.gov/api/v1/geocode/multiple?apiKey=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -107,11 +120,11 @@ window.openFile = async () => {
   };
 
   // spatial join
-  const joined = tag(pointsFeatureSet, countyBoundaries, fieldName, fieldName);
+  const joined = tag(pointsFeatureSet, openDataFeatureSet, fieldName, fieldName);
   console.log('joined', joined);
   const joinedLookup = convertJoinedToLookup(joined, fieldName);
 
-  const newRecords = records.map(record => {
+  const newRecords = inputRecords.map(record => {
     return {
       ...record,
       ...geocodingResults[record[inputId]],

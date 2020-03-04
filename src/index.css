@@ -4,7 +4,7 @@ body {
   max-width: 38rem;
   padding: 2rem;
 }
-input, select {
+input, select, button {
   width: 100%;
   margin-bottom: 10px;
 }

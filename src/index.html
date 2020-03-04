@@ -11,6 +11,22 @@
 
     <!-- office -->
     <!-- <input type="text" id="apiKey" value="AGRC-ED11D762314090" /> -->
+
+    <h3>Input</h3>
+    <button onclick="openFile()">Upload CSV</button>
+    ID Field Name
+    <select id="inputId">
+      <option>please select a field</option>
+    </select>
+    Street Field Name
+    <select id="inputStreet">
+      <option>please select a field</option>
+    </select>
+    Zone Field Name
+    <select id="inputZone">
+      <option>please select a field</option>
+    </select>
+
     <h3>Output</h3>
     Open Data Dataset
     <select id="tableName" onchange="loadOpenDataDataset()">
@@ -20,13 +36,7 @@
     <select id="fieldName">
       <option>please select a field</option>
     </select>
-    <h3>Input</h3>
-    ID Field Name
-    <input type="text" id="inputId" value="OID" />
-    Street Field Name
-    <input type="text" id="inputStreet" value="FullAdd" />
-    Zone Field Name
-    <input type="text" id="inputZone" value="ZipCode" />
-    <button onclick="openFile()">Upload CSV</button>
+
+    <button onclick="processRecords()">Process Records</button>
   </body>
 </html>
