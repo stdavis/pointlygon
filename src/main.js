@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const isDev = require('electron-is-dev');
 
 app.allowRendererProcessReuse = true;
 
@@ -12,7 +13,7 @@ const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
-    height: 600,
+    height: 1200,
     webPreferences: {
       nodeIntegration: true
     }
@@ -23,7 +24,7 @@ const createWindow = () => {
 
   // Open the DevTools.
   if (isDev) {
-  mainWindow.webContents.openDevTools();
+    mainWindow.webContents.openDevTools();
   }
 };
 
